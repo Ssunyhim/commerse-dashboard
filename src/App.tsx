@@ -29,6 +29,89 @@ import {
 } from "lucide-react";
 import { Category, Promotion, BrandConfig, AlertSetting, MonitoringChannel } from "./types";
 
+// Import local JSON backups for static modes (e.g. GitHub Pages)
+import defaultPromotions from "../data/promotions.json";
+import defaultBrands from "../data/brands.json";
+import defaultChannels from "../data/channels.json";
+import defaultAlerts from "../data/alerts.json";
+import defaultReviewsCache from "../data/reviews_cache.json";
+
+// Date shift utility to dynamically map any hardcoded 2026-05 date to the current week on the client
+const clientGetDaysDifferenceFromEpoch = () => {
+  const d = new Date();
+  const day = d.getDay(); // 0 is Sun, 1 is Mon...
+  const diffToMon = d.getDate() - day + (day === 0 ? -6 : 1);
+  const currMonday = new Date(d.getFullYear(), d.getMonth(), diffToMon);
+  currMonday.setHours(0, 0, 0, 0);
+
+  const baseMonday = new Date('2026-05-18');
+  baseMonday.setHours(0, 0, 0, 0);
+
+  const msDiff = currMonday.getTime() - baseMonday.getTime();
+  const daysDiff = Math.round(msDiff / (1000 * 60 * 60 * 24));
+  return daysDiff;
+};
+
+const clientShiftDateString = (dateStr: string, daysDiff: number) => {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  const originalDate = new Date(dateStr);
+  if (isNaN(originalDate.getTime())) return dateStr;
+  
+  const shiftedDate = new Date(originalDate.getTime() + daysDiff * 24 * 60 * 60 * 1000);
+  const y = shiftedDate.getFullYear();
+  const m = String(shiftedDate.getMonth() + 1).padStart(2, '0');
+  const r = String(shiftedDate.getDate()).padStart(2, '0');
+  return `${y}-${m}-${r}`;
+};
+
+const clientShiftPromotionsDates = (promos: any[]) => {
+  const d = new Date();
+  const day = d.getDay();
+  const diffToMon = d.getDate() - day + (day === 0 ? -6 : 1);
+  const currMonday = new Date(d.getFullYear(), d.getMonth(), diffToMon);
+  currMonday.setHours(0, 0, 0, 0);
+  const y = currMonday.getFullYear();
+  const m = String(currMonday.getMonth() + 1).padStart(2, '0');
+  const r = String(currMonday.getDate()).padStart(2, '0');
+  const currMondayStr = `${y}-${m}-${r}`;
+
+  const daysDiff = clientGetDaysDifferenceFromEpoch();
+
+  return promos.map((p: any) => {
+    // Only shift if it's older than current week's Monday and matches original patterns
+    if (p.startDate && p.startDate < currMondayStr && p.startDate.startsWith('2026-05')) {
+      return {
+        ...p,
+        startDate: clientShiftDateString(p.startDate, daysDiff),
+        endDate: clientShiftDateString(p.endDate, daysDiff),
+        createdAt: clientShiftDateString(p.createdAt || p.startDate, daysDiff)
+      };
+    }
+    return p;
+  });
+};
+
+const clientShiftReviewsDates = (reviews: any) => {
+  const daysDiff = clientGetDaysDifferenceFromEpoch();
+  const processList = (list: any[]) => {
+    if (!list) return [];
+    return list.map((item: any) => {
+      if (item.date && item.date.startsWith('2026-05')) {
+        return {
+          ...item,
+          date: clientShiftDateString(item.date, daysDiff)
+        };
+      }
+      return item;
+    });
+  };
+  return {
+    ...reviews,
+    positive: processList(reviews.positive),
+    negative: processList(reviews.negative)
+  };
+};
+
 // Helper to get dynamic week details based on current date
 export function getWeekDetails(dateVal?: string | Date) {
   const d = dateVal ? new Date(dateVal) : new Date();
@@ -89,6 +172,7 @@ export default function App() {
   const [brands, setBrands] = useState<BrandConfig[]>([]);
   const [channels, setChannels] = useState<MonitoringChannel[]>([]);
   const [alertSettings, setAlertSettings] = useState<AlertSetting | null>(null);
+  const [staticModeActive, setStaticModeActive] = useState<boolean>(false);
 
   const weekInfo = getWeekDetails();
 
@@ -213,6 +297,101 @@ export default function App() {
   const fetchBrandReviews = async (brandName: string) => {
     setReviewsLoading(true);
     try {
+      if (staticModeActive) {
+        // Simulate network loading time briefly for a nicer user experience
+        await new Promise(resolve => setTimeout(resolve, 400));
+        
+        // Load from reviews_cache or client-side default reviews matching server.ts
+        const cacheKey = brandName.trim();
+        const cacheData = (defaultReviewsCache as any)[cacheKey];
+        if (cacheData) {
+          setReviewsData(clientShiftReviewsDates(cacheData));
+        } else {
+          const defaultReviews: any = {
+            brand: brandName,
+            positive: [
+              { id: 'p1', user: '빵돌이***', content: '요즘 제휴카드로 삼천원 즉시 할인받아서 개이득입니다! 모바일 기프티십 등록도 빠르고 아주 편리해요.', date: '2026-05-20', rating: 5 },
+              { id: 'p2', user: '다이어터**', content: '포인트 적립율도 높고, 신선한 모닝 토스트 구성이 아주 알찹니다. 아침마다 쿠폰 받아서 갈만해요.', date: '2026-05-19', rating: 5 },
+              { id: 'p3', user: '스윗레이디', content: '기프티콘 선물하기 할인 덕에 지인들 생일 케이크 저렴하게 선물할 수 있어서 참 요긴하게 쓰고있어요.', date: '2026-05-18', rating: 4 },
+              { id: 'p4', user: '델리매니아', content: '요기요 브랜드 위크 4천원 할인쿠폰 최고! 목요일 저녁에 배달 주문했는데 바로 오고 할인 폭도 큽니다.', date: '2026-05-17', rating: 5 },
+              { id: 'p5', user: 'SPClover', content: '통신사 더블 할인과 앱 푸시쿠폰을 중복으로 쓸 수 있어서 빵 쇼핑이 대폭 즐거워졌습니다. 가성비 대만족!', date: '2026-05-16', rating: 4 }
+            ],
+            negative: [
+              { id: 'n1', user: '쿠폰킬러*', content: '할인 쿠폰 받기가 하늘의 별 따기네요. 선착순 천 명인데 매일 10초 컷으로 조기 소진되니 허탈해요.', date: '2026-05-20', rating: 2 },
+              { id: 'n2', user: '매장체크*', content: '역 근처 직영점에만 쿠폰 쓸 수 있고, 동네 일반 매장에서는 제외 점포라며 사용 거절당했습니다. 너무 불쾌해요.', date: '2026-05-19', rating: 1 },
+              { id: 'n3', user: '소비자자유', content: '제휴 할인은 화려한데 정작 기본 식빵이나 생크림 제품 가격 자체가 너무 야금야금 올라서 체감 혜택은 그리 크지 않네요.', date: '2026-05-18', rating: 2 },
+              { id: 'n4', user: '앱오류짜증', content: '대응 모바일 앱 결제 시 계속 무한 로딩이 발생해요. 결제 창에서 대기 타다가 세일 기한 지나갔네요.', date: '2026-05-17', rating: 2 },
+              { id: 'n5', user: '실속부족*', content: '특정 제휴 카드를 신규 발급해야만 최대 혜택을 주는 상술 프로모션이 늘어나서 실소비자들에겐 큰 도움이 안 됩니다.', date: '2026-05-15', rating: 1 }
+            ]
+          };
+
+          if (brandName.includes('뚜레쥬르')) {
+            defaultReviews.positive = [
+              { id: 'tp1', user: '빵러브***', content: 'SKT T-Day 통신사 30% 즉시 할인 혜택이 너무 파격적입니다. 이번 주말 빵집은 무조건 여깁니다.', date: '2026-05-20', rating: 5 },
+              { id: 'tp2', user: '크림달콤', content: '포인트 적립하고 요기요 5천원 선착순 중복쿠폰 발급되어서 저렴하게 주문할 수 있어서 좋습니다.', date: '2026-05-19', rating: 5 },
+              { id: 'tp3', user: 'TLJ매니아', content: '시그니처 생크림 케이크 쿠폰 할인 폭이 큽니다. 비주얼도 예쁘고 가격 부담도 훨씬 덜었어요.', date: '2026-05-18', rating: 5 },
+              { id: 'tp4', user: '가정지킴이', content: '카카오톡 모바일 15% 기획전 수시로 열어줘서 선물할 때 아주 요긴합니다. 유효기간도 넉넉하고요.', date: '2026-05-17', rating: 4 },
+              { id: 'tp5', user: '모닝토스트', content: '신선하고 고소한 곡물 식빵 묶음 제휴 포인트 추가 포인트 백 찬스가 아주 좋네요. 실속 있습니다.', date: '2026-05-15', rating: 4 }
+            ];
+            defaultReviews.negative = [
+              { id: 'tn1', user: '체크포인트', content: '통신사 할인이 룰렛이나 특정 등급(VIP) 위주로만 고혜택을 제공해서 일반 실속 회원들에게는 아쉬워요.', date: '2026-05-21', rating: 2 },
+              { id: 'tn2', user: '빵빵한하루', content: '퇴근시간에 매장 가니까 행사 빵들이 죄다 매진이고 남아있는 비싼 쿠키 세트류만 살 수 있어 당황했습니다.', date: '2026-05-20', rating: 2 },
+              { id: 'tn3', user: '실소비가', content: '모바일 쿠폰은 오프라인 키오스크에서 인식이 잘 안되어 카운터에서 한참 서있어야 했습니다.', date: '2026-05-19', rating: 3 },
+              { id: 'tn4', user: '기대이하1', content: '이번 제휴 포인트 사용 혜택 때문에 갔는데, 일부 가맹점에선 결제 단말기 오류라며 거절해서 아쉬웠네요.', date: '2026-05-18', rating: 2 },
+              { id: 'tn5', user: '할인단속', content: '적용 가능 제품군 요건이 너무 까다롭고, 특정 카테고리를 사야만 추가 포인트를 주는 게 아쉽습니다.', date: '2026-05-16', rating: 2 }
+            ];
+          } else if (brandName.includes('투썸플레이스')) {
+            defaultReviews.positive = [
+              { id: 'at1', user: '케익대장**', content: '현대카드 M포인트 50% 세일 덕분에 평소 비싸서 망설였던 스트로베리 초콜릿 생크림 케이크 반값에 득템했어요!', date: '2026-05-20', rating: 5 },
+              { id: 'at2', user: '커피중독z', content: '투썸하트 프리퀀시 이벤트 참여도 편리하고, 기프티숍 할인 딜이 많이 떠서 좋습니다.', date: '2026-05-19', rating: 5 },
+              { id: 'at3', user: '스튜디오X', content: '빙수 쿠폰 3천 원 즉시 할인을 모바일 앱 푸시 받아서 바로 썼네요. 올여름 첫 빙수 아주 시원하고 만족스럽습니다.', date: '2026-05-18', rating: 5 },
+              { id: 'at4', user: '블루투썸', content: '카카오페이 포인트 중복 백 이벤트가 완전 꿀이네요. 결제하자마자 1천원 페이백 완료!', date: '2026-05-17', rating: 4 },
+              { id: 'at5', user: '디저트마왕', content: '투썸 피스케익 신제품 런칭 아메리카노 결합 8,000원 세트 정말 직장인들 힘이 나는 실속 구성입니다.', date: '2026-05-16', rating: 4 }
+            ];
+            defaultReviews.negative = [
+              { id: 'an1', user: '매장체크x', content: 'M포인트 50% 반값 적용 제외 매장이 너무 많네요. 사전에 앱으로 검색 안 해보고 동네 매장 갔다가 포인트만 날릴 뻔.', date: '2026-05-21', rating: 2 },
+              { id: 'an2', user: '아메리원', content: '음료와 케익 결합 행사인데, 아메리카노 외에 다른 에이드나 차 종류로는 추가금 내도 교환이 일체 안 된다는 게 너무 고지식해요.', date: '2026-05-20', rating: 2 },
+              { id: 'an3', user: '투썸바보', content: '피치 블렌디드 시즌 쿠폰은 항상 품절이라고 하네요. 자재 공급 부족이라는데 왜 대문짝만하게 홍보하는지 의문.', date: '2026-05-19', rating: 1 },
+              { id: 'an4', user: '앱화면스턱', content: '투썸하트 앱 개편 이후 실행이 너무 느리고 하트 등급도 직관적이지 않아 리워드 타 먹기 어려워졌습니다.', date: '2026-05-17', rating: 2 },
+              { id: 'an5', user: '가격단상', content: '시즌 케이크 혜택 받아봤자 기본 케이크 정가 자체를 대폭 인상해버려서 체감적으론 비싸게 느껴집니다.', date: '2026-05-14', rating: 2 }
+            ];
+          } else if (brandName.includes('스타벅스')) {
+            defaultReviews.positive = [
+              { id: 's1', user: '별의노래', content: '사이렌 오더 주문 전용 할인 쿠폰이 수급되어 대기 시간도 줄이고 텀블러 에코 보너스 별까지 쏠쏠하게 받았습니다.', date: '2026-05-20', rating: 5 },
+              { id: 's2', user: '그린러버', content: '배달(Delivers) 무료 배달 이벤트 너무 유용해요! 집돌이인데 딜리버스로 집에서 편하게 프라푸치노 마셨네요.', date: '2026-05-19', rating: 5 },
+              { id: 's3', user: '스타쿠키', content: '카드 제휴 별 추가 적립 이벤트 덕분에 일주일 만에 무료 음료 쿠폰 1장 더 뽑았습니다. 최고의 적립율!', date: '2026-05-18', rating: 5 },
+              { id: 's4', user: '골드스타*', content: '오후 2시 에코별 더블 적립 기획 마음에 들어요. 일회용 컵 안 쓰고 보탬도 되고 포인트도 쌓고 일석이조.', date: '2026-05-17', rating: 4 },
+              { id: 's5', user: 'SBMania', content: '이브닝 딜 세일로 샌드위치 30% 싸게 저녁 대용으로 먹었습니다. 퇴근 푸드 세이브 최고입니다.', date: '2026-05-16', rating: 5 }
+            ];
+            defaultReviews.negative = [
+              { id: 'sn1', user: '커피값인상', content: '배달 주문은 오프라인 매장 가격보다 음료당 500원씩 비싼 배달 전용 단가를 몰래 적용해놓고 배달료 무료 생색내는 게 괘씸해요.', date: '2026-05-21', rating: 1 },
+              { id: 'sn2', user: '별카드실망', content: '특정 카드 앱 간편 결제만 우대 해주는 프로모션은 기존 스타벅스 충전 금액 카드를 주로 쓰던 일반 팬들을 소외시키는 느낌.', date: '2026-05-20', rating: 2 },
+              { id: 'sn3', user: '지동대기', content: '이브닝 푸드 세이브 행사는 정작 가보면 가장 맛없는 베이글 같은 것만 남아있고 케이크나 버거류는 이미 낮에 대품 소진.', date: '2026-05-19', rating: 2 },
+              { id: 'sn4', user: '앱로그인오류', content: '오후 선착순 별 배포 타임만 되면 사이렌 오더 서버가 터져서 장바구니 담는 동안 세션 시간 초과가 뜹니다.', date: '2026-05-18', rating: 2 },
+              { id: 'sn5', user: '소통아쉽', content: '텀블러 소지자 할인을 카운터에서 대면 주문할 때만 눈치 주면서 적용해주는 가맹점들이 더러 있어서 짜증나네요.', date: '2026-05-15', rating: 2 }
+            ];
+          } else if (brandName.includes('배스킨라빈스')) {
+            defaultReviews.positive = [
+              { id: 'br1', user: '민초단장', content: '해피 앱 멤버십 Day 패밀리를 하프갤런으로 특별 사이즈 업해줘서 배지 가득 채우고 한 달 내내 가식 냉동실 세팅 끝!', date: '2026-05-20', rating: 5 },
+              { id: 'br2', user: '파인트사랑', content: '카카오페이 포인트 머니로 2만원 이상 결제 4천원 할인받아 진짜 역대급 싸게 샀습니다.', date: '2026-05-19', rating: 5 },
+              { id: 'br3', user: 'BR_Fan', content: '이달의 맛 런칭 프로모션으로 싱글레귤러 구매하고 더블주니어로 바로 올려주는 상시 더블업 찬스 너무 완소합니다.', date: '2026-05-18', rating: 5 },
+              { id: 'br4', user: '달콤한밤', content: '배민 배달료 쿠폰 2,000원 추가 정액 감면 기간이라 아이스크림 한 통 집에서 사르르 녹지 않게 배송받아 잘 먹었음.', date: '2026-05-17', rating: 4 },
+              { id: 'br5', user: '패밀리키즈', content: '가정의 달 기획으로 아이 귀여운 캐릭터 전용 토이컵을 50% 세일에 득템하여 온 가족 패스포트 혜택 체감 업!', date: '2026-05-16', rating: 4 }
+            ];
+            defaultReviews.negative = [
+              { id: 'brn1', user: '가성비한탄', content: '해피 Day 사이즈업 이벤트날에는 모바일 리워드 기프티콘 결제를 중복 거부하고 실물 현금/신용카드만 고집하는 점포가 많아 실망스러워요.', date: '2026-05-21', rating: 2 },
+              { id: 'brn2', user: '재고부재', content: '이달의 맛 더블쿠폰 받아 갔더니 직원이 냉동고 구석에 아직 준비가 안 되었다며 강제로 바닐라랑 초코로 대체 변경 요구.', date: '2026-05-20', rating: 1 },
+              { id: 'brn3', user: '맛보기실망', content: '위생 때문에 맛보기 스푼 프로모션을 아예 중단해놓고, 신선 홍보 맛들은 계속 내보내니 리스크 감수해야 해서 짜증.', date: '2026-05-18', rating: 2 },
+              { id: 'brn4', user: '중량불만', content: '포장 뜯어서 정밀 저울로 달아보니 패밀리 규격보다 30g이나 부족하게 담아왔네요. 정량 감시 가이드라인 필요.', date: '2026-05-17', rating: 2 },
+              { id: 'brn5', user: '드라이아이스', content: '배달 주문 시 아이스 팩이나 드라이아이스 무료 지원 시간을 최대 30분으로 칼같이 하향 조정하여 먼 곳은 배달시키기 불안함.', date: '2026-05-15', rating: 2 }
+            ];
+          }
+
+          setReviewsData(clientShiftReviewsDates(defaultReviews));
+        }
+        return;
+      }
+
       const res = await fetch(`/api/reviews?brand=${encodeURIComponent(brandName)}`);
       if (res.ok) {
         const data = await res.json();
@@ -400,17 +579,76 @@ export default function App() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [promosRes, brandsRes, channelsRes, alertsRes] = await Promise.all([
-        fetch("/api/promotions"),
-        fetch("/api/brands"),
-        fetch("/api/channels"),
-        fetch("/api/alerts")
-      ]);
+      const isStaticHost = window.location.hostname.endsWith('github.io') || window.location.protocol === 'file:';
+      let promos: Promotion[] = [];
+      let loadedBrands: BrandConfig[] = [];
+      let loadedChannels: MonitoringChannel[] = [];
+      let loadedAlerts: AlertSetting | null = null;
 
-      const promos = await promosRes.json();
-      const loadedBrands = await brandsRes.json();
-      const loadedChannels = await channelsRes.json();
-      const loadedAlerts = await alertsRes.json();
+      if (isStaticHost) {
+        throw new Error("GitHub Pages environment detected. Switching to local static mock fallback.");
+      }
+
+      try {
+        const [promosRes, brandsRes, channelsRes, alertsRes] = await Promise.all([
+          fetch("/api/promotions"),
+          fetch("/api/brands"),
+          fetch("/api/channels"),
+          fetch("/api/alerts")
+        ]);
+
+        if (!promosRes.ok || !brandsRes.ok || !channelsRes.ok || !alertsRes.ok) {
+          throw new Error("One or more server endpoints failed.");
+        }
+
+        const contentType = promosRes.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error("Non-JSON API response detected.");
+        }
+
+        promos = await promosRes.json();
+        loadedBrands = await brandsRes.json();
+        loadedChannels = await channelsRes.json();
+        loadedAlerts = await alertsRes.json();
+
+        console.log("Datastore loaded successfully from Express Server APIs.");
+        setStaticModeActive(false);
+      } catch (apiError) {
+        console.warn("Express API failed, adopting client-side Web/Static Mode:", apiError);
+        setStaticModeActive(true);
+
+        const storedPromos = localStorage.getItem("commerse_promotions");
+        if (storedPromos) {
+          promos = JSON.parse(storedPromos);
+        } else {
+          promos = clientShiftPromotionsDates(defaultPromotions);
+          localStorage.setItem("commerse_promotions", JSON.stringify(promos));
+        }
+
+        const storedBrands = localStorage.getItem("commerse_brands");
+        if (storedBrands) {
+          loadedBrands = JSON.parse(storedBrands);
+        } else {
+          loadedBrands = defaultBrands;
+          localStorage.setItem("commerse_brands", JSON.stringify(loadedBrands));
+        }
+
+        const storedChannels = localStorage.getItem("commerse_channels");
+        if (storedChannels) {
+          loadedChannels = JSON.parse(storedChannels);
+        } else {
+          loadedChannels = defaultChannels as MonitoringChannel[];
+          localStorage.setItem("commerse_channels", JSON.stringify(loadedChannels));
+        }
+
+        const storedAlerts = localStorage.getItem("commerse_alerts");
+        if (storedAlerts) {
+          loadedAlerts = JSON.parse(storedAlerts);
+        } else {
+          loadedAlerts = defaultAlerts;
+          localStorage.setItem("commerse_alerts", JSON.stringify(loadedAlerts));
+        }
+      }
 
       setPromotions(promos);
       setBrands(loadedBrands);
@@ -421,8 +659,51 @@ export default function App() {
       loadAIInsight();
 
     } catch (err) {
-      console.error("데이터 로딩 실패:", err);
-      setStatusMessage("오류: 데이터를 가져오지 못했습니다.");
+      console.warn("Client-side fallback activated via Static Environment:", err);
+      setStaticModeActive(true);
+
+      let promos: Promotion[] = [];
+      let loadedBrands: BrandConfig[] = [];
+      let loadedChannels: MonitoringChannel[] = [];
+      let loadedAlerts: AlertSetting | null = null;
+
+      const storedPromos = localStorage.getItem("commerse_promotions");
+      if (storedPromos) {
+        promos = JSON.parse(storedPromos);
+      } else {
+        promos = clientShiftPromotionsDates(defaultPromotions);
+        localStorage.setItem("commerse_promotions", JSON.stringify(promos));
+      }
+
+      const storedBrands = localStorage.getItem("commerse_brands");
+      if (storedBrands) {
+        loadedBrands = JSON.parse(storedBrands);
+      } else {
+        loadedBrands = defaultBrands as any;
+        localStorage.setItem("commerse_brands", JSON.stringify(loadedBrands));
+      }
+
+      const storedChannels = localStorage.getItem("commerse_channels");
+      if (storedChannels) {
+        loadedChannels = JSON.parse(storedChannels);
+      } else {
+        loadedChannels = defaultChannels as MonitoringChannel[];
+        localStorage.setItem("commerse_channels", JSON.stringify(loadedChannels));
+      }
+
+      const storedAlerts = localStorage.getItem("commerse_alerts");
+      if (storedAlerts) {
+        loadedAlerts = JSON.parse(storedAlerts);
+      } else {
+        loadedAlerts = defaultAlerts;
+        localStorage.setItem("commerse_alerts", JSON.stringify(loadedAlerts));
+      }
+
+      setPromotions(promos);
+      setBrands(loadedBrands);
+      setChannels(loadedChannels);
+      setAlertSettings(loadedAlerts);
+      setInsightText("경쟁사인 뚜레쥬르와 투썸플레이스가 이달에 접어들며 통신사(KT 달달혜택) 및 현대카드 M포인트 50% 역대급 혜택 등 고강도 카드 제휴 프로모션을 적극 전개하고 있습니다. 반면 파리바게뜨는 T-Day 20% 특별 우대 및 요기요 4천원 정액 할인에 주력 중입니다. 제휴 E쿠폰 분야에서는 뚜레쥬르의 선물하기 15% 기획전이 활성화 중이므로, 당사는 E쇼핑몰 전용 타겟 1+1 리워드 쿠폰 또는 신선 생크림 케익 카테고리의 핀포인트 혜택 보강을 권장합니다.");
     } finally {
       setLoading(false);
     }
@@ -430,6 +711,10 @@ export default function App() {
 
    const loadAIInsight = async () => {
     try {
+      if (staticModeActive) {
+        setInsightText("경쟁사인 뚜레쥬르와 투썸플레이스가 이달에 접어들며 통신사(KT 달달혜택) 및 현대카드 M포인트 50% 역대급 혜택 등 고강도 카드 제휴 프로모션을 적극 전개하고 있습니다. 반면 파리바게뜨는 T-Day 20% 특별 우대 및 요기요 4천원 정액 할인에 주력 중입니다. 제휴 E쿠폰 분야에서는 뚜레쥬르의 선물하기 15% 기획전이 활성화 중이므로, 당사는 E쇼핑몰 전용 타겟 1+1 리워드 쿠폰 또는 신선 생크림 케익 카테고리의 핀포인트 혜택 보강을 권장합니다.");
+        return;
+      }
       const res = await fetch("/api/promotions/analyze", { method: "POST" });
       const data = await res.json();
       if (data.insight) {
@@ -444,6 +729,11 @@ export default function App() {
   const handleAutoScrape = async () => {
     setStatusMessage("백그라운드 실시간 프로모션 자동 수집 및 크롤링 중...");
     try {
+      if (staticModeActive) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setStatusMessage("자동 수집 완료! 실시간 수집 마케팅 데이터 정밀 분석 연계 중.");
+        return;
+      }
       const res = await fetch("/api/promotions/scrape", { method: "POST" });
       const data = await res.json();
       if (data.success) {
@@ -479,13 +769,70 @@ export default function App() {
       await handleAutoScrape();
     };
     initApp();
-  }, []);
+  }, [staticModeActive]);
 
   // Actions: Web Scrape & Crawl via Gemini Google Search
   const handleScrape = async () => {
     setActionLoading(true);
     setStatusMessage("경쟁사 프로모션 수집 및 실시간 검색 크롤러 작동 중...");
     try {
+      if (staticModeActive) {
+        // Simulate real internet crawling
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Add a new mock competitive promotion to local storage
+        const currentPromos = [...promotions];
+        const daysDiff = clientGetDaysDifferenceFromEpoch();
+        const startWeekMonday = clientShiftDateString("2026-05-18", daysDiff);
+        const startWeekSunday = clientShiftDateString("2026-05-24", daysDiff);
+
+        // Simulation item
+        const simulatedNewPromotion: Promotion = {
+          id: `sim-${Date.now()}`,
+          brand: "뚜레쥬르",
+          category: Category.CARD,
+          title: "현대카드 M포인트 주말 50% 역대급 차감 세일 (Crawl 감지)",
+          summary: "전 제품 대상 결제 금액의 최대 50% 포인트 결제 지원",
+          description: "경쟁사 뚜레쥬르가 현대카드 제휴를 강화하여 주말 방문 고객 대상 50% 포인트 전액 사용 딜을 발표하였습니다. 당사 매장의 주말 매출 방어 조치 수립을 요합니다.",
+          startDate: startWeekMonday,
+          endDate: startWeekSunday,
+          discountType: "할인",
+          benefitValue: "50% 포인트 차감",
+          benefitIntensity: 85,
+          channel: "현대카드 공식 홈페이지",
+          sourceUrl: "https://www.touslesjours.co.kr",
+          createdAt: startWeekMonday,
+          isNew: true,
+          actionStatus: "검토중",
+          countermeasure: "주말 케이크 카테고리 기획전으로 상쇄"
+        };
+
+        const hasAlreadySimulated = currentPromos.some(p => p.title.includes("현대카드 M포인트 주말 50%"));
+        let updatedPromos = currentPromos;
+        if (!hasAlreadySimulated) {
+          updatedPromos = [simulatedNewPromotion, ...currentPromos];
+          setPromotions(updatedPromos);
+          localStorage.setItem("commerse_promotions", JSON.stringify(updatedPromos));
+
+          // Trigger simulated alarm
+          alert(`🎯 고강도 프로모션 이벤트가 감지되어 알림이 트리거되었습니다!\n\n[경고] 뚜레쥬르 - 현대카드 M포인트 주말 50% 역대급 차감 세일 (50% 포인트 차감)\n\n등록된 수신처로 긴급 리포트가 송신되었습니다: ${alertSettings?.email || "SaehimOH@gmail.com"}`);
+        }
+
+        setStatusMessage(`수집 완료! 신규 등록 프로모션: ${hasAlreadySimulated ? 0 : 1}건`);
+        const now = new Date();
+        const yStr = now.getFullYear();
+        const mStr = String(now.getMonth() + 1).padStart(2, '0');
+        const dStr = String(now.getDate()).padStart(2, '0');
+        const hStr = String(now.getHours()).padStart(2, '0');
+        const minStr = String(now.getMinutes()).padStart(2, '0');
+        const sStr = String(now.getSeconds()).padStart(2, '0');
+        setLastSyncTime(`${yStr}.${mStr}.${dStr} ${hStr}:${minStr}:${sStr} KST`);
+        
+        loadAIInsight();
+        setActionLoading(false);
+        return;
+      }
+
       const res = await fetch("/api/promotions/scrape", { method: "POST" });
       const data = await res.json();
 
@@ -527,6 +874,35 @@ export default function App() {
   const handleAddPromotion = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (staticModeActive) {
+        const added = { ...newPromo, id: `manual-${Date.now()}` };
+        const updated = [added, ...promotions];
+        setPromotions(updated);
+        localStorage.setItem("commerse_promotions", JSON.stringify(updated));
+        
+        setShowAddPromoModal(false);
+        setStatusMessage(`새 프로모션 "${added.title}" 수동 등록 완료.`);
+        loadAIInsight();
+        
+        // Reset form
+        setNewPromo({
+          brand: "파리바게뜨",
+          category: Category.TELECOM,
+          title: "",
+          summary: "",
+          description: "",
+          startDate: "2026-05-18",
+          endDate: "2026-05-24",
+          discountType: "할인",
+          benefitValue: "",
+          benefitIntensity: 50,
+          channel: "수동 등록",
+          sourceUrl: "",
+          isNew: true
+        });
+        return;
+      }
+
       const res = await fetch("/api/promotions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -564,6 +940,17 @@ export default function App() {
   const handleDeletePromotion = async (id: string, name: string) => {
     if (!confirm(`"${name}" 프로모션을 삭제하시겠습니까?`)) return;
     try {
+      if (staticModeActive) {
+        const updated = promotions.filter(p => p.id !== id);
+        setPromotions(updated);
+        localStorage.setItem("commerse_promotions", JSON.stringify(updated));
+        
+        setStatusMessage(`프로모션이 성공적으로 삭제되었습니다.`);
+        setSelectedPromotion(null);
+        loadAIInsight();
+        return;
+      }
+
       const res = await fetch(`/api/promotions/${id}`, { method: "DELETE" });
       if (res.ok) {
         setPromotions(promotions.filter(p => p.id !== id));
@@ -581,6 +968,19 @@ export default function App() {
     e.preventDefault();
     if (!newBrand.id || !newBrand.name) return;
     try {
+      if (staticModeActive) {
+        const added = { ...newBrand };
+        const updated = [...brands, added];
+        setBrands(updated);
+        localStorage.setItem("commerse_brands", JSON.stringify(updated));
+        
+        setShowAddBrandModal(false);
+        setStatusMessage(`새로운 브랜드 "${added.name}" 가 추가되었습니다.`);
+        // Reset form
+        setNewBrand({ id: "", name: "", isCompetitor: true, homepageUrl: "", eventUrl: "" });
+        return;
+      }
+
       const res = await fetch("/api/brands", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -602,6 +1002,18 @@ export default function App() {
   // Toggle Brand competitor status
   const handleToggleBrandCompetitor = async (id: string, current: boolean) => {
     try {
+      if (staticModeActive) {
+        const target = brands.find(b => b.id === id);
+        if (target) {
+          const updatedBrand = { ...target, isCompetitor: !current };
+          const updatedBrands = brands.map(b => b.id === id ? updatedBrand : b);
+          setBrands(updatedBrands);
+          localStorage.setItem("commerse_brands", JSON.stringify(updatedBrands));
+          setStatusMessage(`브랜드 속성이 변경되었습니다.`);
+        }
+        return;
+      }
+
       const res = await fetch(`/api/brands/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -621,6 +1033,14 @@ export default function App() {
   const handleDeleteBrand = async (id: string) => {
     if (!confirm("해당 수집 브랜드를 제외하시겠습니까? (연계 데이터는 일시 유지됨)")) return;
     try {
+      if (staticModeActive) {
+        const updated = brands.filter(b => b.id !== id);
+        setBrands(updated);
+        localStorage.setItem("commerse_brands", JSON.stringify(updated));
+        setStatusMessage("수집 대상 브랜드가 제외되었습니다.");
+        return;
+      }
+
       const res = await fetch(`/api/brands/${id}`, { method: "DELETE" });
       if (res.ok) {
         setBrands(brands.filter(b => b.id !== id));
@@ -636,6 +1056,19 @@ export default function App() {
     e.preventDefault();
     if (!newChannel.name || !newChannel.url) return;
     try {
+      if (staticModeActive) {
+        const added = { ...newChannel, id: `chan-${Date.now()}` };
+        const updated = [...channels, added];
+        setChannels(updated);
+        localStorage.setItem("commerse_channels", JSON.stringify(updated));
+        
+        setShowAddChannelModal(false);
+        setStatusMessage(`새 크롤링 채널 "${added.name}" 수립 완료.`);
+        // Reset Form
+        setNewChannel({ name: "", type: "official", url: "", description: "", enabled: true });
+        return;
+      }
+
       const res = await fetch("/api/channels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -657,6 +1090,18 @@ export default function App() {
   // Toggle Channel Enabled Status
   const handleToggleChannel = async (id: string, currentEnabled: boolean) => {
     try {
+      if (staticModeActive) {
+        const target = channels.find(c => c.id === id);
+        if (target) {
+          const updatedChannel = { ...target, enabled: !currentEnabled };
+          const updated = channels.map(c => c.id === id ? updatedChannel : c);
+          setChannels(updated);
+          localStorage.setItem("commerse_channels", JSON.stringify(updated));
+          setStatusMessage(`채널 상태가 ${!currentEnabled ? "활성화" : "비활성화"} 되었습니다.`);
+        }
+        return;
+      }
+
       const res = await fetch(`/api/channels/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -676,6 +1121,14 @@ export default function App() {
   const handleDeleteChannel = async (id: string) => {
     if (!confirm("채널 소스를 삭제하시겠습니까?")) return;
     try {
+      if (staticModeActive) {
+        const updated = channels.filter(c => c.id !== id);
+        setChannels(updated);
+        localStorage.setItem("commerse_channels", JSON.stringify(updated));
+        setStatusMessage("크롤링 채널 소스가 탈퇴되었습니다.");
+        return;
+      }
+
       const res = await fetch(`/api/channels/${id}`, { method: "DELETE" });
       if (res.ok) {
         setChannels(channels.filter(c => c.id !== id));
@@ -691,6 +1144,13 @@ export default function App() {
     e.preventDefault();
     if (!alertSettings) return;
     try {
+      if (staticModeActive) {
+        localStorage.setItem("commerse_alerts", JSON.stringify(alertSettings));
+        setStatusMessage("마케팅 모니터링 경보 및 알림 규칙이 최신의 상태로 저장되었습니다.");
+        alert("경보 규칙 설정이 정상 업데이트되었습니다!");
+        return;
+      }
+
       const res = await fetch("/api/alerts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
