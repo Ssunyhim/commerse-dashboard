@@ -1,0 +1,37 @@
+[
+  {
+    "id": "pb",
+    "name": "파리바게뜨",
+    "isCompetitor": false,
+    "homepageUrl": "https://www.paris.co.kr",
+    "eventUrl": "https://www.paris.co.kr/promotion/event-list/"
+  },
+  {
+    "id": "tl",
+    "name": "뚜레쥬르",
+    "isCompetitor": true,
+    "homepageUrl": "https://www.tlj.co.kr",
+    "eventUrl": "https://www.tlj.co.kr/community/event/list.asp"
+  },
+  {
+    "id": "tw",
+    "name": "투썸플레이스",
+    "isCompetitor": true,
+    "homepageUrl": "https://www.twosome.co.kr",
+    "eventUrl": "https://www.twosome.co.kr/event/list.do"
+  },
+  {
+    "id": "sb",
+    "name": "스타벅스",
+    "isCompetitor": true,
+    "homepageUrl": "https://www.starbucks.co.kr",
+    "eventUrl": "https://www.starbucks.co.kr/whats_new/campaign_list.do"
+  },
+  {
+    "id": "br",
+    "name": "배스킨라빈스",
+    "isCompetitor": true,
+    "homepageUrl": "https://www.baskinrobbins.co.kr",
+    "eventUrl": "https://www.baskinrobbins.co.kr/event/list.php"
+  }
+]

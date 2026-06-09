@@ -30,11 +30,11 @@ import {
 import { Category, Promotion, BrandConfig, AlertSetting, MonitoringChannel } from "./types";
 
 // Import local JSON backups for static modes (e.g. GitHub Pages)
-import defaultPromotions from "../data/promotions.json";
-import defaultBrands from "../data/brands.json";
-import defaultChannels from "../data/channels.json";
-import defaultAlerts from "../data/alerts.json";
-import defaultReviewsCache from "../data/reviews_cache.json";
+import defaultPromotions from "./data/promotions.json";
+import defaultBrands from "./data/brands.json";
+import defaultChannels from "./data/channels.json";
+import defaultAlerts from "./data/alerts.json";
+import defaultReviewsCache from "./data/reviews_cache.json";
 
 // Date shift utility to dynamically map any hardcoded 2026-05 date to the current week on the client
 const clientGetDaysDifferenceFromEpoch = () => {

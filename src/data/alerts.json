@@ -1,0 +1,7 @@
+{
+  "id": "cfg1",
+  "email": "SaehimOH@gmail.com",
+  "slackWebhook": "https://hooks.slack.com/services/T000000/B000000/XXXXXXXXXXXXXXX",
+  "minDiscountThreshold": 45,
+  "enabled": true
+}
