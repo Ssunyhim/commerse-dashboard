@@ -963,6 +963,77 @@ export default function App() {
     }
   };
 
+  // Proof link safe navigation logic (Two-track management)
+  const handleProofLinkClick = async (promo: Promotion, e: React.MouseEvent) => {
+    e.preventDefault();
+
+    // Track 1: Check if the promotion is closed/expired (current week basis)
+    const todayStr = new Date().toISOString().split("T")[0]; // e.g. "2026-06-09"
+    const isExpired = promo.endDate && promo.endDate < todayStr;
+
+    if (isExpired) {
+      if (confirm(`[종료된 프로모션 감지]\n\n해당 프로모션("${promo.title}")은 이벤트 기간(${promo.startDate} ~ ${promo.endDate})이 이미 종료되었습니다.\n\n안전 가이드에 따라 이 기간 만료 프로모션을 캘린더에서 완벽히 삭제/정리하시겠습니까?`)) {
+        await handleDeletePromotion(promo.id, promo.title);
+        return;
+      }
+    }
+
+    // Track 2: Handle landing issues (fallback to brand main home or event hub site list)
+    const testUrl = promo.sourceUrl || "";
+    let targetUrl = testUrl;
+
+    const brandFallbackUrls: Record<string, { home: string; eventHub: string }> = {
+      "파리바게뜨": {
+        home: "https://www.paris.co.kr",
+        eventHub: "https://www.paris.co.kr/promotion/event-list/"
+      },
+      "뚜레쥬르": {
+        home: "https://www.touslesjours.co.kr",
+        eventHub: "https://www.touslesjours.co.kr/community/event/list.asp"
+      },
+      "투썸플레이스": {
+        home: "https://www.twosome.co.kr",
+        eventHub: "https://www.twosome.co.kr/event/list.do"
+      },
+      "스타벅스": {
+        home: "https://www.starbucks.co.kr",
+        eventHub: "https://www.starbucks.co.kr/whats_new/campaign_list.do"
+      },
+      "배스킨라빈스": {
+        home: "https://www.baskinrobbins.co.kr",
+        eventHub: "https://www.baskinrobbins.co.kr/event/list.php"
+      }
+    };
+
+    const cleanBrand = promo.brand ? promo.brand.trim() : "";
+    const fallback = brandFallbackUrls[cleanBrand] || { 
+      home: "https://www.paris.co.kr", 
+      eventHub: "https://www.paris.co.kr/promotion/event-list/" 
+    };
+
+    const isErrorProneDetailLink = 
+      testUrl.includes("/detail") || 
+      testUrl.includes("/event-detail") || 
+      testUrl.includes("campaign_detail") || 
+      testUrl.includes("campaign-detail") || 
+      testUrl.includes("event/detail") ||
+      testUrl.includes("event/list.php") ? true : false;
+
+    if (isErrorProneDetailLink) {
+      if (confirm(`[이동 링크 정정 및 무중단 보정 안내]\n\n해당 프로모션의 수집 상세 증빙 URL은 사이트 개편이나 주차 만료 등으로 인해 접속 오류(404)를 보일 수 있습니다.\n\n안전하고 정상 보정된 공식 브랜드의 [이벤트 통합센터 목록] 페이지로 우회하여 자동 연결해 드릴까요?\n\n- [확인]: 안전한 공식 이벤트 목록 허브로 이동\n- [취소]: 오리지널 수집 상세 경로 직접 이동 시도`)) {
+        targetUrl = fallback.eventHub;
+      }
+    } else if (!testUrl.startsWith("http")) {
+      targetUrl = fallback.home;
+    }
+
+    try {
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("Link navigation failed", err);
+    }
+  };
+
   // Add Brand Target
   const handleAddBrand = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3003,15 +3074,13 @@ export default function App() {
 
               {selectedPromotion.sourceUrl && (
                 <div className="pt-2">
-                  <a
-                    href={selectedPromotion.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex justify-center items-center space-x-1 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded text-xs font-bold transition border border-slate-200"
+                  <button
+                    onClick={(e) => handleProofLinkClick(selectedPromotion, e)}
+                    className="flex justify-center items-center space-x-1.5 w-full bg-blue-50 hover:bg-blue-100 text-[#003C8F] hover:text-blue-800 py-3 rounded-lg text-xs font-bold transition border border-blue-150 shadow-sm cursor-pointer"
                   >
                     <span>공식 이벤트 증빙 원본 링크로 이동</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+                    <ExternalLink className="w-3.5 h-3.5 text-[#003C8F]" />
+                  </button>
                 </div>
               )}
 
