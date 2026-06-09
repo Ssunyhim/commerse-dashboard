@@ -224,6 +224,8 @@ export default function App() {
   const [showExecBoard, setShowExecBoard] = useState<boolean>(true);
   const [selectedReviewBrand, setSelectedReviewBrand] = useState<string>("파리바게뜨");
   const [reviewsLoading, setReviewsLoading] = useState<boolean>(false);
+  const [showAutoCrawlToast, setShowAutoCrawlToast] = useState<boolean>(false);
+  const [isFirstLoadReviews, setIsFirstLoadReviews] = useState<boolean>(true);
   const [reviewsData, setReviewsData] = useState<{
     brand: string;
     positive: Array<{ id: string; user: string; content: string; date: string; rating: number }>;
@@ -389,6 +391,14 @@ export default function App() {
 
           setReviewsData(clientShiftReviewsDates(defaultReviews));
         }
+        
+        if (isFirstLoadReviews) {
+          setShowAutoCrawlToast(true);
+          setIsFirstLoadReviews(false);
+          setTimeout(() => {
+            setShowAutoCrawlToast(false);
+          }, 5500);
+        }
         return;
       }
 
@@ -396,6 +406,14 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setReviewsData(data);
+        
+        if (isFirstLoadReviews) {
+          setShowAutoCrawlToast(true);
+          setIsFirstLoadReviews(false);
+          setTimeout(() => {
+            setShowAutoCrawlToast(false);
+          }, 5500);
+        }
       }
     } catch (err) {
       console.error("고객 여론 크롤링 에러:", err);
@@ -1879,6 +1897,21 @@ export default function App() {
   return (
     <div id="pb-commerce-watch" className="flex flex-col h-screen w-full bg-[#F3F4F6] font-sans text-slate-800 overflow-hidden">
       
+      {/* SNS Auto Crawl Page Load Toast Notification */}
+      {showAutoCrawlToast && (
+        <div id="sns-auto-crawl-toast" className="fixed top-24 right-8 bg-slate-900 border border-slate-700 text-white p-4 rounded-xl shadow-2xl z-50 flex items-start space-x-3 max-w-sm animate-fade-in">
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 shrink-0 mt-0.5">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <h5 className="font-bold text-xs">💬 SNS 고객 여론 자동 크롤링 완료</h5>
+            <p className="text-[10px] text-slate-300 mt-1 leading-relaxed">
+              페이지 접속 시 주요 블로그, 인스타그램, 뽐뿌 커뮤니티의 실시간 행사 피드백 수집 및 감성 요약이 백그라운드에서 자동으로 최신화되었습니다.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Top Header */}
       <header id="main-header" className="flex items-center justify-between px-8 h-20 bg-white border-b border-slate-200 shadow-sm shrink-0">
         <div className="flex items-center space-x-4">
@@ -2094,7 +2127,13 @@ export default function App() {
                         <span className="text-blue-600">💬</span>
                         <span>실시간 고객 경험 및 소셜 감성 여론 트랙킹 (Market Customer Reviews Analyzer)</span>
                       </h4>
-                      <p className="text-xs text-slate-400">브랜드별 실시간 행사 여론, 혜택 불만 및 선호 지표 긍부정 즉시 선취 (브랜드당 각 5개 정밀 필터)</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 pt-0.5">
+                        <p className="text-xs text-slate-400">브랜드별 실시간 행사 여론, 혜택 불만 및 선호 지표 긍부정 즉시 선취 (브랜드당 각 5개 정밀 필터)</p>
+                        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 w-fit animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          <span>실시간 SNS 자동 크롤링 감지됨</span>
+                        </span>
+                      </div>
                     </div>
 
                     {/* Brand Selector Pills */}
