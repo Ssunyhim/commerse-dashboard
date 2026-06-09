@@ -1,0 +1,6 @@
+{
+  "name": "PB Commerce-Watch",
+  "description": "파리바게뜨 및 주요 경쟁사의 커머스 프로모션을 자동으로 모니터링, 분류 및 분석하는 스마트 대시보드 플랫폼",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "ch1",
+    "name": "브랜드 공식 이벤트관",
+    "type": "official",
+    "url": "브랜드별 상시 이벤트 공지사항",
+    "description": "각 브랜드의 공식 프로모션 배너 및 보도 기사",
+    "enabled": true
+  },
+  {
+    "id": "ch2",
+    "name": "배달의민족 브랜드관 할인",
+    "type": "delivery",
+    "url": "https://baemin.com",
+    "description": "배민 브랜드관 내 주차/요일별 쿠폰 할인 이벤트",
+    "enabled": true
+  },
+  {
+    "id": "ch3",
+    "name": "요기요 오늘의할인",
+    "type": "delivery",
+    "url": "https://yogiyo.co.kr",
+    "description": "요기요 전용 정기 쿠폰 팩 및 한정 특가전",
+    "enabled": true
+  },
+  {
+    "id": "ch4",
+    "name": "SKT T-Day 멤버십 혜택",
+    "type": "telecom",
+    "url": "https://sktmembership.co.kr",
+    "description": "매월 주차별 브랜드 우대 할인 및 우주패스 단독 혜택",
+    "enabled": true
+  },
+  {
+    "id": "ch5",
+    "name": "KT 달달혜택 멤버십",
+    "type": "telecom",
+    "url": "https://membership.kt.com",
+    "description": "KT 더블혜택 및 선착순 무료 쿠폰 증정",
+    "enabled": true
+  },
+  {
+    "id": "ch6",
+    "name": "신한 플레이 터치 마이샵",
+    "type": "card",
+    "url": "https://www.shinhancard.com",
+    "description": "신한 SOL Pay 내 타겟 마케팅 맞춤 터치 청구할인",
+    "enabled": true
+  }
+]
